@@ -1,0 +1,14 @@
+# Dependency directories
+node_modules/
+
+# Local development
+*.env
+
+# Logs
+npm-debug.log*
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
