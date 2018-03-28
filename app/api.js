@@ -93,6 +93,19 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
     });
 })
 
+router.get('/transaction/:account', (req, res) => {
+    // Get first page of transactions for account
+    stellarServer.transactions()
+    .forAccount(req.params.account)
+    .call()
+    .then((page) => {
+        return res.send(page.records)
+    })
+    .catch((err) => {
+        return res.status(500).send(`Stellar exception. ${err.toString()}`)
+    });
+})
+
 router.use((err, req, res, next) => {
   res.status(400).json(err);
 });
