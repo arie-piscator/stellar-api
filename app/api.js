@@ -2,9 +2,9 @@ const express = require('express')
 const router = express.Router()
 const middleware = require('./middleware')
 const axios = require('axios')
-const bodyParser = require('body-parser')
+const validate = require('express-validation')
+const validation = require('./validation')
 const StellarSdk = require('stellar-sdk')
-const jsonParser = bodyParser.json()
 const stellarServer = new StellarSdk.Server('https://horizon-testnet.stellar.org')
 
 router.use(middleware)
@@ -50,26 +50,9 @@ router.get('/asset', (req, res) => {
     res.send('GET asset')
 })
 
-router.post('/transaction', jsonParser, (req, res) => {
+router.post('/transaction', validate(validation.transaction), (req, res) => {
     if (!req.body) {
         return res.sendStatus(400)
-    }
-
-    // Todo: Validate properly
-    if (!req.body.secret) { // String
-        return res.status(422).send('The origin secret is missing.')
-    }
-
-    if (!req.body.destination) { // String
-        return res.status(422).send('The destination id is missing.')
-    }
-
-    if (!req.body.amount) { // String
-        return res.status(422).send('The amount is missing.')
-    }
-
-    if (!req.body.memo) { // String
-        return res.status(422).send('The memo is missing.')
     }
 
     const sourceKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
@@ -109,5 +92,9 @@ router.post('/transaction', jsonParser, (req, res) => {
         return res.status(500).send(`Stellar exception. ${err.toString()}`)
     });
 })
+
+router.use((err, req, res, next) => {
+  res.status(400).json(err);
+});
 
 module.exports = router
