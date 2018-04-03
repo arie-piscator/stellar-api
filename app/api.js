@@ -42,12 +42,48 @@ router.get('/account/:account', (req, res) => {
     })
 })
 
-router.post('/asset', (req, res) => {
-    res.send('POST create asset')
+router.post('/asset', validate(validation.asset), (req, res) => {
+    if (!req.body) {
+        return res.sendStatus(400)
+    }
+
+    const issuingKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
+    const asset = new StellarSdk.Asset(req.body.asset, issuingKeys.publicKey())
+
+    res.send(asset)
 })
 
 router.get('/asset', (req, res) => {
     res.send('GET asset')
+})
+
+router.post('/asset/trust', validate(validation.asset.trust), (req, res) => {
+    if (!req.body) {
+        return res.sendStatus(400)
+    }
+
+    const receivingKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
+    const asset = new StellarSdk.Asset(req.body.code, req.body.issuer)
+
+    StellarSdk.Network.useTestNetwork()
+
+    stellarServer.loadAccount(receivingKeys.publicKey())
+    .then((receiver) => {
+        let transaction = new StellarSdk.TransactionBuilder(receiver)
+        .addOperation(StellarSdk.Operation.changeTrust({
+            asset: asset,
+            limit: req.body.limit ? req.body.limit : '0'
+        }))
+        .build()
+
+        transaction.sign(receivingKeys)
+
+        return stellarServer.submitTransaction(transaction)
+    }).then((result) => {
+        return res.send(`Trusting asset transaction ${result.hash} sucessful.`)
+    }).catch((err) => {
+        return res.status(500).send(`Stellar exception. ${err.toString()}`)
+    })
 })
 
 router.post('/transaction', validate(validation.transaction), (req, res) => {
@@ -57,7 +93,11 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
 
     const sourceKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
     const destinationId = req.body.destination
-    let transaction
+    let asset = StellarSdk.Asset.native() // Lumens
+
+    if (req.body.asset && req.body.issuer) {
+        asset = new StellarSdk.Asset(req.body.asset, req.body.issuer)
+    }
 
     StellarSdk.Network.useTestNetwork()
 
@@ -71,10 +111,10 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
         return stellarServer.loadAccount(sourceKeys.publicKey());
     })
     .then((originAccount) => {
-        transaction = new StellarSdk.TransactionBuilder(originAccount)
+        let transaction = new StellarSdk.TransactionBuilder(originAccount)
         .addOperation(StellarSdk.Operation.payment({
             destination: destinationId,
-            asset: StellarSdk.Asset.native(), // Lumens
+            asset: asset,
             amount: req.body.amount
         }))
         // Add meta data
