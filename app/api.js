@@ -4,13 +4,13 @@ const middleware = require('./middleware')
 const axios = require('axios')
 const validate = require('express-validation')
 const validation = require('./validation')
-const StellarSdk = require('stellar-sdk')
-const stellarServer = new StellarSdk.Server('https://horizon-testnet.stellar.org')
+const stellarSdk = require('stellar-sdk')
+const stellarServer = new stellarSdk.Server('https://horizon-testnet.stellar.org')
 
 router.use(middleware)
 
 router.post('/account', (req, res) => {
-    const pair = StellarSdk.Keypair.random();
+    const pair = stellarSdk.Keypair.random();
 
     axios.get('https://friendbot.stellar.org', {
         params: {
@@ -47,8 +47,8 @@ router.post('/asset', validate(validation.asset), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const issuingKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
-    const asset = new StellarSdk.Asset(req.body.asset, issuingKeys.publicKey())
+    const issuingKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
+    const asset = new stellarSdk.Asset(req.body.asset, issuingKeys.publicKey())
 
     res.send(asset)
 })
@@ -62,15 +62,15 @@ router.post('/asset/trust', validate(validation.asset.trust), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const receivingKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
-    const asset = new StellarSdk.Asset(req.body.code, req.body.issuer)
+    const receivingKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
+    const asset = new stellarSdk.Asset(req.body.code, req.body.issuer)
 
-    StellarSdk.Network.useTestNetwork()
+    stellarSdk.Network.useTestNetwork()
 
     stellarServer.loadAccount(receivingKeys.publicKey())
     .then((receiver) => {
-        let transaction = new StellarSdk.TransactionBuilder(receiver)
-        .addOperation(StellarSdk.Operation.changeTrust({
+        let transaction = new stellarSdk.TransactionBuilder(receiver)
+        .addOperation(stellarSdk.Operation.changeTrust({
             asset: asset,
             limit: req.body.limit ? req.body.limit : '0'
         }))
@@ -91,34 +91,46 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const sourceKeys = StellarSdk.Keypair.fromSecret(req.body.secret)
+    const sourceKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
     const destinationId = req.body.destination
-    let asset = StellarSdk.Asset.native() // Lumens
+    let asset = stellarSdk.Asset.native()
 
+    // Custom asset
     if (req.body.asset && req.body.issuer) {
-        asset = new StellarSdk.Asset(req.body.asset, req.body.issuer)
+        asset = new stellarSdk.Asset(req.body.asset, req.body.issuer)
     }
 
-    StellarSdk.Network.useTestNetwork()
+    stellarSdk.Network.useTestNetwork()
 
     stellarServer.loadAccount(destinationId)
-    // Destination account not found
-    .catch(StellarSdk.NotFoundError, (error) => {
-        return res.status(422).send('The destination account does not exist.')
+    .then((destinationAccount) => {
+         // Check if receiver trusts asset
+        let trusted = destinationAccount.balances.some((balance) => {
+            return asset.asset_type === 'native'
+                || (balance.asset_code === asset.code
+                && balance.asset_issuer === asset.issuer)
+        })
+
+        if (!trusted) {
+           throw new Error(
+                `The receiving account (${destinationId})
+                does not have a trustline for the asset.`
+            )
+        }
     })
     // Load origin account
     .then(() => {
         return stellarServer.loadAccount(sourceKeys.publicKey());
     })
     .then((originAccount) => {
-        let transaction = new StellarSdk.TransactionBuilder(originAccount)
-        .addOperation(StellarSdk.Operation.payment({
+        let transaction = new stellarSdk.TransactionBuilder(originAccount)
+        .addOperation(stellarSdk.Operation.payment({
             destination: destinationId,
             asset: asset,
             amount: req.body.amount
         }))
         // Add meta data
-        .addMemo(StellarSdk.Memo.text(req.body.memo))
+        .addMemo(stellarSdk.Memo.text(req.body.memo))
         .build()
 
         transaction.sign(sourceKeys);
@@ -129,7 +141,7 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
         return res.send(`Transaction ${result.hash} sucessful.`)
     })
     .catch((err) => {
-        return res.status(500).send(`Stellar exception. ${err.toString()}`)
+        return res.status(500).send(err.toString())
     });
 })
 
