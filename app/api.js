@@ -4,6 +4,7 @@ const middleware = require('./middleware')
 const axios = require('axios')
 const validate = require('express-validation')
 const validation = require('./validation')
+const policy = require('./policy')
 const stellarSdk = require('stellar-sdk')
 const stellarServer = new stellarSdk.Server('https://horizon-testnet.stellar.org')
 
@@ -102,26 +103,10 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
 
     stellarSdk.Network.useTestNetwork()
 
-    stellarServer.loadAccount(destinationId)
-    .then((destinationAccount) => {
-         // Check if receiver trusts asset
-        let trusted = destinationAccount.balances.some((balance) => {
-            return asset.asset_type === 'native'
-                || asset.issuer === destinationId
-                || (balance.asset_code === asset.code
-                && balance.asset_issuer === asset.issuer)
-        })
-
-        if (!trusted) {
-           throw new Error(
-                `The receiving account (${destinationId})
-                does not have a trustline for the asset.`
-            )
-        }
-    })
+    policy.transaction.destinationTrustsAsset(destinationId, asset)
     // Load origin account
     .then(() => {
-        return stellarServer.loadAccount(sourceKeys.publicKey());
+        return stellarServer.loadAccount(sourceKeys.publicKey())
     })
     .then((originAccount) => {
         let transaction = new stellarSdk.TransactionBuilder(originAccount)
@@ -136,7 +121,7 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
 
         transaction.sign(sourceKeys);
 
-        return stellarServer.submitTransaction(transaction);
+        return stellarServer.submitTransaction(transaction)
     })
     .then((result) => {
         return res.send(`Transaction ${result.hash} sucessful.`)
