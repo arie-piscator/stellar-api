@@ -107,6 +107,7 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
          // Check if receiver trusts asset
         let trusted = destinationAccount.balances.some((balance) => {
             return asset.asset_type === 'native'
+                || asset.issuer === destinationId
                 || (balance.asset_code === asset.code
                 && balance.asset_issuer === asset.issuer)
         })
