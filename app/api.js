@@ -5,6 +5,7 @@ const axios = require('axios')
 const validate = require('express-validation')
 const validation = require('./validation')
 const policy = require('./policy')
+const exception = require('./exception')
 const stellarSdk = require('stellar-sdk')
 const stellarServer = new stellarSdk.Server('https://horizon-testnet.stellar.org')
 
@@ -26,6 +27,8 @@ router.post('/account', (req, res) => {
     })
     .catch(err => {
         const error = err.data.data
+
+        exception.email(err)
         res.status(error.status).send(error.title)
     })
 })
@@ -39,6 +42,8 @@ router.get('/account/:account', (req, res) => {
     })
     .catch(err => {
         const error = err.data.data
+
+        exception.email(err)
         res.status(error.status).send(error.title)
     })
 })
@@ -83,6 +88,7 @@ router.post('/asset/trust', validate(validation.asset.trust), (req, res) => {
     }).then((result) => {
         return res.send(`Trusting asset transaction ${result.hash} sucessful.`)
     }).catch((err) => {
+        exception.email(err)
         return res.status(500).send(`Stellar exception. ${err.toString()}`)
     })
 })
@@ -127,6 +133,7 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
         return res.send(`Transaction ${result.hash} sucessful.`)
     })
     .catch((err) => {
+        exception.email(err)
         return res.status(500).send(err.toString())
     });
 })
@@ -140,6 +147,7 @@ router.get('/transaction/:account', (req, res) => {
         return res.send(page.records)
     })
     .catch((err) => {
+        exception.email(err)
         return res.status(500).send(`Stellar exception. ${err.toString()}`)
     });
 })
