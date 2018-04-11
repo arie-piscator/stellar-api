@@ -1,50 +1,43 @@
 const express = require('express')
 const router = express.Router()
 const middleware = require('./middleware')
-const axios = require('axios')
+const stellarAccount = require('./resources/stellar/account')
+const stellarAsset = require('./resources/stellar/asset')
+const stellarTransaction = require('./resources/stellar/transaction')
 const validate = require('express-validation')
 const validation = require('./validation')
-const policy = require('./policy')
-const exception = require('./exception')
-const stellarSdk = require('stellar-sdk')
-const stellarServer = new stellarSdk.Server('https://horizon-testnet.stellar.org')
 
 router.use(middleware)
 
 router.post('/account', (req, res) => {
-    const pair = stellarSdk.Keypair.random();
-
-    axios.get('https://friendbot.stellar.org', {
-        params: {
-            addr: pair.publicKey()
-        }
-    })
-    .then(response => {
-        res.send({
-            publicKey: pair.publicKey(),
-            secret: pair.secret()
+    if (process.env.STELLAR_NETWORK === 'test') {
+        stellarAccount.createTest()
+        .then(account => {
+            res.send(account)
         })
-    })
-    .catch(err => {
-        const error = err.data.data
+        .catch(err => {
+            res.status(err.status).send(err.message)
+        })
+    }
 
-        exception.email(err)
-        res.status(error.status).send(error.title)
-    })
+    if (process.env.STELLAR_NETWORK === 'live') {
+        stellarAccount.createLive()
+        .then(account => {
+            return res.send(account)
+        })
+        .catch(err => {
+            return res.status(err.status).send(err.message)
+        })
+    }
 })
 
 router.get('/account/:account', (req, res) => {
-    stellarServer.accounts()
-    .accountId(req.params.account)
-    .call()
-    .then(accountResult => {
-        res.send(accountResult);
+    stellarAccount.get(req.params.account)
+    .then(account => {
+        res.send(account)
     })
     .catch(err => {
-        const error = err.data.data
-
-        exception.email(err)
-        res.status(error.status).send(error.title)
+        res.status(err.status).send(err.message)
     })
 })
 
@@ -53,10 +46,13 @@ router.post('/asset', validate(validation.asset), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const issuingKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
-    const asset = new stellarSdk.Asset(req.body.asset, issuingKeys.publicKey())
-
-    res.send(asset)
+    stellarAsset.create(req.body.secret, req.body.asset)
+    .then(asset => {
+        res.send(asset)
+    })
+    .catch(err => {
+        res.status(err.status).send(err.message)
+    })
 })
 
 router.get('/asset', (req, res) => {
@@ -68,28 +64,12 @@ router.post('/asset/trust', validate(validation.asset.trust), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const receivingKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
-    const asset = new stellarSdk.Asset(req.body.code, req.body.issuer)
-
-    stellarSdk.Network.useTestNetwork()
-
-    stellarServer.loadAccount(receivingKeys.publicKey())
-    .then((receiver) => {
-        let transaction = new stellarSdk.TransactionBuilder(receiver)
-        .addOperation(stellarSdk.Operation.changeTrust({
-            asset: asset,
-            limit: req.body.limit ? req.body.limit : '0'
-        }))
-        .build()
-
-        transaction.sign(receivingKeys)
-
-        return stellarServer.submitTransaction(transaction)
-    }).then((result) => {
-        return res.send(`Trusting asset transaction ${result.hash} sucessful.`)
-    }).catch((err) => {
-        exception.email(err)
-        return res.status(500).send(`Stellar exception. ${err.toString()}`)
+    stellarAsset.trust(req.body.secret, req.body.code, req.body.issuer, req.body.limit)
+    .then(result => {
+        res.send(result)
+    })
+    .catch(err => {
+        res.status(err.status).send(err.message)
     })
 })
 
@@ -98,58 +78,30 @@ router.post('/transaction', validate(validation.transaction), (req, res) => {
         return res.sendStatus(400)
     }
 
-    const sourceKeys = stellarSdk.Keypair.fromSecret(req.body.secret)
-    const destinationId = req.body.destination
-    let asset = stellarSdk.Asset.native()
-
-    // Custom asset
-    if (req.body.asset && req.body.issuer) {
-        asset = new stellarSdk.Asset(req.body.asset, req.body.issuer)
-    }
-
-    stellarSdk.Network.useTestNetwork()
-
-    policy.transaction.destinationTrustsAsset(destinationId, asset)
-    // Load origin account
-    .then(() => {
-        return stellarServer.loadAccount(sourceKeys.publicKey())
+    stellarTransaction.create(
+        req.body.secret,
+        req.body.destination,
+        req.body.amount,
+        req.body.asset,
+        req.body.issuer,
+        req.body.memo
+    )
+    .then(result => {
+        res.send(result)
     })
-    .then((originAccount) => {
-        let transaction = new stellarSdk.TransactionBuilder(originAccount)
-        .addOperation(stellarSdk.Operation.payment({
-            destination: destinationId,
-            asset: asset,
-            amount: req.body.amount
-        }))
-        // Add meta data
-        .addMemo(stellarSdk.Memo.text(req.body.memo))
-        .build()
-
-        transaction.sign(sourceKeys);
-
-        return stellarServer.submitTransaction(transaction)
+    .catch(err => {
+        res.status(err.status).send(err.message)
     })
-    .then((result) => {
-        return res.send(`Transaction ${result.hash} sucessful.`)
-    })
-    .catch((err) => {
-        exception.email(err)
-        return res.status(500).send(err.toString())
-    });
 })
 
 router.get('/transaction/:account', (req, res) => {
-    // Get first page of transactions for account
-    stellarServer.transactions()
-    .forAccount(req.params.account)
-    .call()
-    .then((page) => {
-        return res.send(page.records)
+    stellarTransaction.show(req.params.account)
+    .then(transactions => {
+        res.send(transactions)
     })
-    .catch((err) => {
-        exception.email(err)
-        return res.status(500).send(`Stellar exception. ${err.toString()}`)
-    });
+    .catch(err => {
+        res.status(err.status).send(err.message)
+    })
 })
 
 router.use((err, req, res, next) => {

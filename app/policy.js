@@ -1,5 +1,5 @@
 const stellarSdk = require('stellar-sdk')
-const stellarServer = new stellarSdk.Server('https://horizon-testnet.stellar.org')
+const stellarServer = new stellarSdk.Server(process.env.STELLAR_SERVER)
 
 module.exports = {
     transaction: {
