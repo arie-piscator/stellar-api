@@ -54,25 +54,24 @@ module.exports = {
     },
     createLive: () => {
         return new Promise((resolve, reject) => {
-            const pair = stellarSdk.Keypair.random();
+            const pair = stellarSdk.Keypair.random()
+
+            stellarSdk.Network.usePublicNetwork()
 
             // Send 2 XLM to account in order to create it and provide
             // enough balance for future transactions.
-            stellarTransaction.create(
-                process.env.STELLAR_SECRET,
+            stellarTransaction.createAccount(
                 pair.publicKey(),
                 '2',
-                false,
-                false,
-                'Base fees'
+                process.env.STELLAR_SECRET,
             )
-            .then(result => {
+            .then((result) => {
                 resolve({
                     publicKey: pair.publicKey(),
                     secret: pair.secret()
                 })
             })
-            .catch(err => {
+            .catch((err) => {
                 reject({
                     status: err.status,
                     message: err.message

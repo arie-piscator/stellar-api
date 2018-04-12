@@ -5,7 +5,7 @@ module.exports = {
     transaction: {
         destinationTrustsAsset: (publicKey, asset) => {
             return new Promise((resolve, reject) => {
-                if (asset.asset_type === 'native') {
+                if (asset.code === 'XLM') {
                     resolve()
                 }
 

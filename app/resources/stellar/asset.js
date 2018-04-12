@@ -9,6 +9,10 @@ module.exports = {
                 stellarSdk.Network.useTestNetwork()
             }
 
+            if (process.env.STELLAR_NETWORK === 'live') {
+                stellarSdk.Network.usePublicNetwork()
+            }
+
             const issuingKeys = stellarSdk.Keypair.fromSecret(secret)
             const asset = new stellarSdk.Asset(code, issuingKeys.publicKey())
 
@@ -19,6 +23,10 @@ module.exports = {
         return new Promise((resolve, reject) => {
             if (process.env.STELLAR_NETWORK === 'test') {
                 stellarSdk.Network.useTestNetwork()
+            }
+
+            if (process.env.STELLAR_NETWORK === 'live') {
+                stellarSdk.Network.usePublicNetwork()
             }
 
             const receivingKeys = stellarSdk.Keypair.fromSecret(secret)
@@ -37,7 +45,7 @@ module.exports = {
 
                 return stellarServer.submitTransaction(transaction)
             }).then((result) => {
-                resolve(`Trusting asset transaction ${result.hash} sucessful.`)
+                resolve(`Trusting asset transaction ${result.hash} successful.`)
             }).catch((err) => {
                 exception.email(err)
                 reject({

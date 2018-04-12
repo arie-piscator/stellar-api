@@ -10,6 +10,10 @@ module.exports = {
                 stellarSdk.Network.useTestNetwork()
             }
 
+            if (process.env.STELLAR_NETWORK === 'live') {
+                stellarSdk.Network.usePublicNetwork()
+            }
+
             const sourceKeys = stellarSdk.Keypair.fromSecret(secret)
             const destinationId = destination
             let asset = stellarSdk.Asset.native()
@@ -25,6 +29,7 @@ module.exports = {
                 return stellarServer.loadAccount(sourceKeys.publicKey())
             })
             .then((originAccount) => {
+
                 let transaction = new stellarSdk.TransactionBuilder(originAccount)
                 .addOperation(stellarSdk.Operation.payment({
                     destination: destinationId,
@@ -40,7 +45,45 @@ module.exports = {
                 return stellarServer.submitTransaction(transaction)
             })
             .then((result) => {
-                resolve(`Transaction ${result.hash} sucessful.`)
+                resolve(`Transaction ${result.hash} successful.`)
+            })
+            .catch((err) => {
+                exception.email(err)
+                reject({
+                    status: 500,
+                    message: err.toString()
+                })
+            })
+        })
+    },
+    createAccount: (destination, balance, secret) => {
+        return new Promise((resolve, reject) => {
+            if (process.env.STELLAR_NETWORK === 'test') {
+                stellarSdk.Network.useTestNetwork()
+            }
+
+            if (process.env.STELLAR_NETWORK === 'live') {
+                stellarSdk.Network.usePublicNetwork()
+            }
+
+            const sourceKeys = stellarSdk.Keypair.fromSecret(secret)
+
+            stellarServer.loadAccount(sourceKeys.publicKey())
+            .then((originAccount) => {
+
+                let transaction = new stellarSdk.TransactionBuilder(originAccount)
+                .addOperation(stellarSdk.Operation.createAccount({
+                    destination: destination,
+                    startingBalance: balance
+                }))
+                .build()
+
+                transaction.sign(sourceKeys);
+
+                return stellarServer.submitTransaction(transaction)
+            })
+            .then((result) => {
+                resolve(`Create account transaction successful.`)
             })
             .catch((err) => {
                 exception.email(err)
@@ -55,6 +98,10 @@ module.exports = {
         return new Promise((resolve, reject) => {
             if (process.env.STELLAR_NETWORK === 'test') {
                 stellarSdk.Network.useTestNetwork()
+            }
+
+            if (process.env.STELLAR_NETWORK === 'live') {
+                stellarSdk.Network.usePublicNetwork()
             }
 
             // Get first page of transactions for account
