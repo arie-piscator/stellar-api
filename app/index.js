@@ -5,7 +5,7 @@ const api = require('./api')
 const bodyParser = require('body-parser')
 const ip = require('express-ipfilter');
 
-const ips = ['::1'];
+const ips = ['185.127.108.21', '::1'];
 
 if (process.env.STELLAR_NETWORK === 'test') {
     app.use(ip.IpFilter(ips, {mode: 'allow'}))
