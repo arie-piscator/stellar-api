@@ -7,7 +7,7 @@ const ip = require('express-ipfilter');
 
 const ips = ['::1'];
 
-if (process.env.STELLAR_NETWORK === 'live') {
+if (process.env.STELLAR_NETWORK === 'test') {
     app.use(ip.IpFilter(ips, {mode: 'allow'}))
 
     app.use((err, req, res, next) => {
