@@ -7,7 +7,7 @@ const bodyParser = require('body-parser')
 
 if (process.env.STELLAR_NETWORK === 'live') {
     app.use(cors({
-        origin: /pro\.stemapp\.io$/
+        origin: [/localhost$/,  /pro\.stemapp\.io$/]
     }))
 }
 
