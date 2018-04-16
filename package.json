@@ -21,7 +21,6 @@
     "axios": "0.18.0",
     "body-parser": "1.18.2",
     "express": "4.16.3",
-    "express-ipfilter": "0.3.1",
     "express-validation": "1.0.2",
     "joi": "13.1.2",
     "nodemailer": "4.6.4",
