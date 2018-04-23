@@ -1,7 +1,7 @@
 
 
 # Node.js Stellar API Bridge
-A bridge to the [Stellar API](https://www.stellar.org/developers/reference/) built with Node.js. This API makes it easy to perform a few basic actions on the Stellar network, such as account / asset creation and transaction handling. You can use this API from any application, without any need for the Stellar SDK. We built this API for [stemapp.io](stemapp.io) and consume it with a PHP / Laravel application.
+A bridge to the [Stellar API](https://www.stellar.org/developers/reference/) built with Node.js. This API makes it easy to perform a few basic actions on the Stellar network, such as account / asset creation and transaction handling. You can use this API from any application, without any need for the Stellar SDK. We built this API for [stemapp.io](https://stemapp.io) and consume it with a PHP / Laravel application.
 
 ## Prerequisites
 
